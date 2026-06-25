@@ -1,0 +1,62 @@
+version: '3.9'
+
+services:
+  api:
+    build: ./backend
+    container_name: markvault-api
+    ports:
+      - "4086:8080"
+    environment:
+      - DB_HOST=postgres
+      - DB_NAME=${DB_NAME:-markvault}
+      - DB_USER=${DB_USER:-mv_app}
+      - DB_PASS=${DB_PASS}
+      - SSO_JWT_SECRET=${SSO_JWT_SECRET:-nexuslayer-shared-sso-secret-change-in-production-64chars!!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - mv-net
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://markvault.nexuslayer.eu/v1
+        VITE_IDENTITY_SERVER_URL: https://identity.nexuslayer.eu
+    container_name: markvault-frontend
+    ports:
+      - "4006:80"
+    depends_on:
+      - api
+    networks:
+      - mv-net
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: markvault-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-markvault}
+      POSTGRES_USER: ${DB_USER:-mv_app}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      - mv_pgdata:/var/lib/postgresql/data
+    networks:
+      - mv-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mv_app -d markvault"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+networks:
+  mv-net:
+    driver: bridge
+
+volumes:
+  mv_pgdata:

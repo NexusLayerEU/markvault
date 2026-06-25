@@ -1,0 +1,36 @@
+services:
+  api:
+    build: ./backend
+    container_name: markvault-api
+    ports:
+      - "4086:8080"
+    environment:
+      - DB_HOST=nexuslayer-postgres
+      - DB_NAME=${MV_DB_NAME:-markvault}
+      - DB_USER=${MV_DB_USER:-mv_app}
+      - DB_PASS=${MV_DB_PASS}
+      - SSO_JWT_SECRET=${JWT_SECRET}
+    networks:
+      - nexuslayer-net
+    restart: always
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: https://mark.nexuslayer.eu/v1
+        VITE_IDENTITY_SERVER_URL: https://identity.nexuslayer.eu
+    container_name: markvault-frontend
+    ports:
+      - "4006:80"
+    depends_on:
+      - api
+    networks:
+      - nexuslayer-net
+    restart: always
+
+networks:
+  nexuslayer-net:
+    external: true
